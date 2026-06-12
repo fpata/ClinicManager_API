@@ -59,13 +59,29 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Helper function to decode Base64 connection string
+string DecodeConnectionString(string? input)
+{
+    if (string.IsNullOrEmpty(input)) return string.Empty;
+    try
+    {
+        var bytes = System.Convert.FromBase64String(input);
+        return System.Text.Encoding.UTF8.GetString(bytes);
+    }
+    catch (System.FormatException)
+    {
+        return input;
+    }
+}
+
 // Add EF Core DbContext based on app.config configuration (MySql or SqlServer)
 var provider = System.Configuration.ConfigurationManager.AppSettings["DatabaseProvider"] ?? "MySql";
 
 if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
 {
-    var connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["SqlServerConnection"]?.ConnectionString 
+    var rawConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["SqlServerConnection"]?.ConnectionString 
         ?? builder.Configuration.GetConnectionString("SqlServerConnection");
+    var connectionString = DecodeConnectionString(rawConnectionString);
     
     builder.Services.AddDbContext<ClinicDbContext>(options =>
         options.UseSqlServer(
@@ -75,8 +91,9 @@ if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
 }
 else
 {
-    var connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["MySqlConnection"]?.ConnectionString 
+    var rawConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["MySqlConnection"]?.ConnectionString 
         ?? builder.Configuration.GetConnectionString("DefaultConnection");
+    var connectionString = DecodeConnectionString(rawConnectionString);
         
     builder.Services.AddDbContext<ClinicDbContext>(options =>
         options.UseMySql(
@@ -85,6 +102,7 @@ else
             mySqlOptions => mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
         ));
 }
+
 
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "KeyForClinicManagerJWTTokenForEncryptionPassKey";
