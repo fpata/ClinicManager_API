@@ -59,13 +59,33 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Add EF Core DbContext for MySQL
-builder.Services.AddDbContext<ClinicDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 36)),
-        mySqlOptions => mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-    ));
+// Add EF Core DbContext based on app.config configuration (MySql or SqlServer)
+var provider = System.Configuration.ConfigurationManager.AppSettings["DatabaseProvider"] ?? "MySql";
+
+if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
+{
+    var connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["SqlServerConnection"]?.ConnectionString 
+        ?? builder.Configuration.GetConnectionString("SqlServerConnection");
+    
+    builder.Services.AddDbContext<ClinicDbContext>(options =>
+        options.UseSqlServer(
+            connectionString,
+            sqlServerOptions => sqlServerOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+        ));
+}
+else
+{
+    var connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["MySqlConnection"]?.ConnectionString 
+        ?? builder.Configuration.GetConnectionString("DefaultConnection");
+        
+    builder.Services.AddDbContext<ClinicDbContext>(options =>
+        options.UseMySql(
+            connectionString,
+            new MySqlServerVersion(new Version(8, 0, 36)),
+            mySqlOptions => mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+        ));
+}
+
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "KeyForClinicManagerJWTTokenForEncryptionPassKey";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ClinicManagerIssuer";
