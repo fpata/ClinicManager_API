@@ -58,6 +58,14 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F3E468C41D1D4FE7BD7881891CA5B5F0 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5F683995B1764016A330559FE6B51DCC }}
 
+      - name: Configure Web App to 32-bit
+        run: |
+          $RG = (az webapp list --query "[?name=='clinicmanagerapi'].resourceGroup" -o tsv)
+          if ($RG) {
+            az webapp config set --name clinicmanagerapi --resource-group $RG --use-32bit-worker-process true
+          }
+        shell: pwsh
+
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
