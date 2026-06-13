@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using ClinicManager.Models.Enums;
+using ClinicManager.Services;
 
 namespace ClinicManager.Controllers
 {
@@ -17,12 +18,16 @@ namespace ClinicManager.Controllers
     {
         private readonly ClinicDbContext _context;
         private readonly ILogger<PatientAppointmentController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly ISmsService _smsService;
         private const int CACHE_EXPIRY_MINUTES = 5;
 
-        public PatientAppointmentController(ClinicDbContext context, ILogger<PatientAppointmentController> logger)
+        public PatientAppointmentController(ClinicDbContext context, ILogger<PatientAppointmentController> logger, IEmailService emailService, ISmsService smsService)
         {
             _context = context;
             _logger = logger;
+            _emailService = emailService;
+            _smsService = smsService;
         }
       
        [HttpGet]
@@ -99,8 +104,64 @@ namespace ClinicManager.Controllers
             await _context.SaveChangesAsync();
             
             // Clear cache for patient's appointments
-         
+          
             _logger.LogInformation($"Created new patient appointment with ID: {appointment.ID}");
+
+            int? userId = appointment.UserID;
+            if (!userId.HasValue && appointment.PatientID.HasValue)
+            {
+                var patient = await _context.Patients
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.ID == appointment.PatientID.Value);
+                if (patient != null)
+                {
+                    userId = patient.UserID;
+                }
+            }
+
+            if (userId.HasValue)
+            {
+                try
+                {
+                    var user = await _context.Users
+                        .Include(u => u.Contact)
+                        .FirstOrDefaultAsync(u => u.ID == userId.Value);
+
+                    if (user != null && user.Contact != null)
+                    {
+                        var dateStr = appointment.StartDateTime.HasValue ? appointment.StartDateTime.Value.ToString("yyyy-MM-dd") : string.Empty;
+                        var timeStr = appointment.StartDateTime.HasValue ? appointment.StartDateTime.Value.ToString("HH:mm") : string.Empty;
+
+                        var variables = new Dictionary<string, string>
+                        {
+                            { "Appointment_Date", dateStr },
+                            { "Appointment_Time", timeStr }
+                        };
+
+                        if (!string.IsNullOrEmpty(user.Contact.PrimaryEmail))
+                        {
+                            await _emailService.SendTemplatedEmailAsync(user.Contact.PrimaryEmail, "AppointmentCreated", variables);
+                        }
+
+                        if (!string.IsNullOrEmpty(user.Contact.PrimaryPhone))
+                        {
+                            try
+                            {
+                                await _smsService.SendTemplatedSmsAsync(user.Contact.PrimaryPhone, "AppointmentCreated", variables);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to send appointment confirmation SMS for appointment ID {AppointmentId}", appointment.ID);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send appointment confirmation notifications for appointment ID {AppointmentId}", appointment.ID);
+                }
+            }
+
             return CreatedAtAction(nameof(Get), new { id = appointment.ID }, appointment);
         }
 
@@ -311,7 +372,92 @@ namespace ClinicManager.Controllers
             }
         }
 
-     
+        [HttpPost("{id}/send-reminder")]
+        public async Task<IActionResult> SendReminderEmail(int id)
+        {
+            _logger.LogInformation($"Sending reminder notifications for appointment ID: {id}");
+
+            var appointment = await _context.PatientAppointments
+                .FirstOrDefaultAsync(a => a.ID == id);
+
+            if (appointment == null)
+            {
+                _logger.LogWarning($"Patient appointment with ID: {id} not found for sending reminder");
+                return NotFound();
+            }
+
+            int? userId = appointment.UserID;
+            if (!userId.HasValue && appointment.PatientID.HasValue)
+            {
+                var patient = await _context.Patients
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.ID == appointment.PatientID.Value);
+                if (patient != null)
+                {
+                    userId = patient.UserID;
+                }
+            }
+
+            if (!userId.HasValue)
+            {
+                return BadRequest("No associated patient user found for this appointment.");
+            }
+
+            var user = await _context.Users
+                .Include(u => u.Contact)
+                .FirstOrDefaultAsync(u => u.ID == userId.Value);
+
+            if (user == null || user.Contact == null || (string.IsNullOrEmpty(user.Contact.PrimaryEmail) && string.IsNullOrEmpty(user.Contact.PrimaryPhone)))
+            {
+                return BadRequest("Patient email address or phone number not found.");
+            }
+
+            try
+            {
+                var dateStr = appointment.StartDateTime.HasValue ? appointment.StartDateTime.Value.ToString("yyyy-MM-dd") : string.Empty;
+                var timeStr = appointment.StartDateTime.HasValue ? appointment.StartDateTime.Value.ToString("HH:mm") : string.Empty;
+
+                var variables = new Dictionary<string, string>
+                {
+                    { "Appointment_Date", dateStr },
+                    { "Appointment_Time", timeStr }
+                };
+
+                bool emailSent = false;
+                bool smsSent = false;
+
+                if (!string.IsNullOrEmpty(user.Contact.PrimaryEmail))
+                {
+                    await _emailService.SendTemplatedEmailAsync(user.Contact.PrimaryEmail, "AppointmentReminder", variables);
+                    emailSent = true;
+                }
+
+                if (!string.IsNullOrEmpty(user.Contact.PrimaryPhone))
+                {
+                    try
+                    {
+                        await _smsService.SendTemplatedSmsAsync(user.Contact.PrimaryPhone, "AppointmentReminder", variables);
+                        smsSent = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send reminder SMS for appointment ID {AppointmentId}", appointment.ID);
+                    }
+                }
+                
+                appointment.ReminderSentDate = DateTime.Now;
+                appointment.ModifiedDate = DateTime.Now;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Reminder notifications successfully sent for appointment ID: {id} (Email: {emailSent}, SMS: {smsSent})");
+                return Ok(new { Message = "Reminder notifications sent successfully.", ReminderSentDate = appointment.ReminderSentDate });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send reminder notifications for appointment ID {AppointmentId}", appointment.ID);
+                return StatusCode(500, "Failed to send reminder notifications.");
+            }
+        }
     }
 
     public class AppointmentSearchResponse 

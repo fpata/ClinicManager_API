@@ -157,23 +157,23 @@ namespace ClinicManager.Controllers
 
             if (isMobile)
             {
-                string message = $"Your Clinic Manager temporary password/OTP is: {tempPassword}. Please use this to log in.";
-                await _smsService.SendSmsAsync(sendTo, message);
+                var variables = new Dictionary<string, string>
+                {
+                    { "message", $"Your Clinic Manager temporary password/OTP is: {tempPassword}. Please use this to log in." },
+                    { "otp", tempPassword },
+                    { "password", tempPassword }
+                };
+                await _smsService.SendTemplatedSmsAsync(sendTo, "ForgotPassword", variables);
                 return Ok($"OTP sent to mobile number {sendTo}");
             }
             else
             {
-                string subject = "Clinic Manager Password Reset";
-                string body = $@"
-                    <h3>Clinic Manager Password Reset</h3>
-                    <p>Hello {user.FirstName},</p>
-                    <p>Your password has been reset. Please use the following temporary password to log in:</p>
-                    <p><strong>{tempPassword}</strong></p>
-                    <p>For security, we recommend changing your password after logging in.</p>
-                    <br>
-                    <p>Regards,<br>Relief Dental Clinic Team</p>";
+                var variables = new Dictionary<string, string>
+                {
+                    { "new_password", tempPassword }
+                };
 
-                await _emailService.SendEmailAsync(sendTo, subject, body);
+                await _emailService.SendTemplatedEmailAsync(sendTo, "ForgotPassword", variables);
                 return Ok($"Reset link sent to email {sendTo}");
             }
         }
