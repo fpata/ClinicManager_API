@@ -14,6 +14,8 @@ IF OBJECT_ID('dbo.address', 'U') IS NOT NULL DROP TABLE dbo.address;
 IF OBJECT_ID('dbo.config', 'U') IS NOT NULL DROP TABLE dbo.config;
 IF OBJECT_ID('dbo.roleaccess', 'U') IS NOT NULL DROP TABLE dbo.roleaccess;
 IF OBJECT_ID('dbo.user', 'U') IS NOT NULL DROP TABLE dbo.[user];
+IF OBJECT_ID('dbo.emailtemplate', 'U') IS NOT NULL DROP TABLE dbo.emailtemplate;
+
 
 -- 1. Table structure for table user
 CREATE TABLE [dbo].[user] (
@@ -340,3 +342,19 @@ CREATE TABLE [dbo].[payment] (
   CONSTRAINT [FK_Payment_Billing] FOREIGN KEY ([BillingID]) REFERENCES [dbo].[billingrecord] ([ID]) ON DELETE SET NULL
 );
 CREATE INDEX [IX_Payment_BillingID] ON [dbo].[payment] ([BillingID]);
+
+-- 14. Table structure for table emailtemplate
+CREATE TABLE [dbo].[emailtemplate] (
+  [ID] int NOT NULL IDENTITY(1,1),
+  [TemplateId] nvarchar(100) NOT NULL,
+  [Subject] nvarchar(200) NOT NULL,
+  [HtmlContent] nvarchar(max) NOT NULL,
+  [CreatedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  [ModifiedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  [CreatedBy] int DEFAULT 1,
+  [ModifiedBy] int DEFAULT 1,
+  [IsActive] tinyint DEFAULT 1,
+  CONSTRAINT [PK_EmailTemplate] PRIMARY KEY ([ID]),
+  CONSTRAINT [UQ_EmailTemplate_TemplateId] UNIQUE ([TemplateId])
+);
+

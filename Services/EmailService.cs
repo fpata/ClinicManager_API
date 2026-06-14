@@ -1,22 +1,27 @@
 using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Mail;
 using System.Text;
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using ClinicManager.DAL;
+using ClinicManager.Models;
 
 namespace ClinicManager.Services
 {
     public class EmailService : IEmailService
     {
+        private readonly ClinicDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
-        private static readonly HttpClient _httpClient = new HttpClient();
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(ClinicDbContext context, IConfiguration configuration, ILogger<EmailService> logger)
         {
+            _context = context;
             _configuration = configuration;
             _logger = logger;
         }
@@ -37,157 +42,162 @@ namespace ClinicManager.Services
 
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
-            var authKey = DecodeBase64Key(_configuration["Msg91Settings:AuthKey"]);
-            var domain = _configuration["Msg91Settings:Email:Domain"];
-            var templateId = _configuration["Msg91Settings:Email:TemplateId"];
-            var senderEmail = _configuration["Msg91Settings:Email:SenderEmail"] ?? "noreply@reliefdentalclinic.com";
-            var senderName = _configuration["Msg91Settings:Email:SenderName"] ?? "Relief Dental Clinic";
-            var clinic_name = _configuration["Msg91Settings:Email:ClinicName"];
-            if (string.IsNullOrEmpty(authKey) || string.IsNullOrEmpty(templateId) || string.IsNullOrEmpty(domain))
+            var smtpServer = _configuration["EmailSettings:SmtpServer"];
+            var portStr = _configuration["EmailSettings:Port"];
+            var senderEmail = _configuration["EmailSettings:SenderEmail"] ?? "noreply@reliefdentalclinic.com";
+            var senderName = _configuration["EmailSettings:SenderName"] ?? "Relief Dental Clinic";
+            var username = _configuration["EmailSettings:Username"];
+            // Password might be base64 encoded, let's check or decode base64 password just like credentials in connection string
+            var rawPassword = _configuration["EmailSettings:Password"];
+            var password = DecodeBase64Key(rawPassword);
+            var enableSslStr = _configuration["EmailSettings:EnableSsl"] ?? "true";
+
+            // If SMTP server or username is empty, fall back to mock log
+            if (string.IsNullOrEmpty(smtpServer) || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
-                _logger.LogWarning("------ MOCK EMAIL SENT ------");
+                _logger.LogWarning("------ MOCK EMAIL SENT (SMTP NOT CONFIGURED) ------");
                 _logger.LogWarning("To: {ToEmail}", toEmail);
                 _logger.LogWarning("Subject: {Subject}", subject);
                 _logger.LogWarning("Body:\n{Body}", body);
-                _logger.LogWarning("-----------------------------");
+                _logger.LogWarning("--------------------------------------------------");
                 return;
+            }
+
+            int port = 587;
+            if (!int.TryParse(portStr, out port))
+            {
+                port = 587;
+            }
+
+            bool enableSsl = true;
+            if (!bool.TryParse(enableSslStr, out enableSsl))
+            {
+                enableSsl = true;
             }
 
             try
             {
-                var requestUrl = "https://control.msg91.com/api/v5/email/send";
-                var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
-
-                request.Headers.Add("authkey", authKey);
-                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-                var payload = new
+                using (var client = new SmtpClient(smtpServer, port))
                 {
-                    recipients = new[]
+                    client.UseDefaultCredentials = false;
+                    client.Credentials = new NetworkCredential(username, password);
+                    client.EnableSsl = enableSsl;
+
+                    var mailMessage = new MailMessage
                     {
-                        new
-                        {
-                            to = new[]
-                            {
-                                new { name = toEmail, email = toEmail  }
-                            },
-                            variables = new
-                            {
-                                subject = subject,
-                                body = body,
-                                clinic_name = clinic_name
-                            }
-                        }
-                    },
-                    from = new
-                    {
-                        name = senderName,
-                        email = senderEmail
-                    },
-                    domain = domain,
-                    template_id = templateId
-                };
+                        From = new MailAddress(senderEmail, senderName),
+                        Subject = subject,
+                        Body = body,
+                        IsBodyHtml = true
+                    };
+                    mailMessage.To.Add(toEmail);
 
-                var json = JsonSerializer.Serialize(payload);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    await client.SendMailAsync(mailMessage);
+                }
 
-                var response = await _httpClient.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Email successfully sent to {ToEmail} via MSG91", toEmail);
-                }
-                else
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed to send email via MSG91. Status: {StatusCode}, Response: {Response}", response.StatusCode, responseContent);
-                    throw new Exception($"MSG91 Email API returned status code {response.StatusCode}: {responseContent}");
-                }
+                _logger.LogInformation("Email successfully sent to {ToEmail} via SMTP Server: {SmtpServer}", toEmail, smtpServer);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send email to {ToEmail} via MSG91.", toEmail);
+                _logger.LogError(ex, "Failed to send email to {ToEmail} via SMTP Server: {SmtpServer}.", toEmail, smtpServer);
                 throw;
             }
         }
 
         public async Task SendTemplatedEmailAsync(string toEmail, string templateId, Dictionary<string, string> variables)
         {
-            var authKey = DecodeBase64Key(_configuration["Msg91Settings:AuthKey"]);
-            var domain = _configuration["Msg91Settings:Email:Domain"];
-            var senderEmail = _configuration["Msg91Settings:Email:SenderEmail"] ?? "noreply@reliefdentalclinic.com";
-            var senderName = _configuration["Msg91Settings:Email:SenderName"] ?? "Relief Dental Clinic";
-            var clinic_name = _configuration["Msg91Settings:Email:ClinicName"];
-            
-            string activeClinicName = !string.IsNullOrEmpty(clinic_name) ? clinic_name : "Relief Dental Clinic";
-            variables.Add("clinic_name", activeClinicName);
+            // 1. Fetch template from DB
+            var template = await _context.EmailTemplates
+                .FirstOrDefaultAsync(t => t.TemplateId == templateId && t.IsActive == 1);
 
-            var configuredTemplateId = _configuration[$"Msg91Settings:Email:Templates:{templateId}"];
-            var actualTemplateId = !string.IsNullOrEmpty(configuredTemplateId) ? configuredTemplateId : templateId;
-
-            if (string.IsNullOrEmpty(authKey) || string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(actualTemplateId))
+            if (template == null)
             {
-                _logger.LogWarning("------ MOCK TEMPLATED EMAIL SENT ------");
-                _logger.LogWarning("To: {ToEmail}", toEmail);
-                _logger.LogWarning("Template ID: {TemplateId}", actualTemplateId);
-                _logger.LogWarning("Variables:");
-                foreach (var kvp in variables)
-                {
-                    _logger.LogWarning("  {Key}: {Value}", kvp.Key, kvp.Value);
-                }
-                _logger.LogWarning("---------------------------------------");
-                return;
+                _logger.LogError("Email template '{TemplateId}' not found in database.", templateId);
+                throw new Exception($"Email template '{templateId}' not found in database.");
             }
 
-            try
+            // 2. Fetch User to populate user name if not already in variables
+            if (!variables.ContainsKey("user_name") && !variables.ContainsKey("UserName") && !variables.ContainsKey("user") && !variables.ContainsKey("PatientName"))
             {
-                var requestUrl = "https://control.msg91.com/api/v5/email/send";
-                var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
-
-                request.Headers.Add("authkey", authKey);
-                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-                var payload = new
+                var user = await _context.Users
+                    .Include(u => u.Contact)
+                    .FirstOrDefaultAsync(u => u.Contact != null && (u.Contact.PrimaryEmail == toEmail || u.Contact.SecondaryEmail == toEmail) && u.IsActive == 1);
+                
+                if (user != null)
                 {
-                    recipients = new[]
-                    {
-                        new
-                        {
-                            to = new[]
-                            {
-                                new { name = toEmail, email = toEmail }
-                            },
-                            variables = variables
-                        }
-                    },
-                    from = new
-                    {
-                        name = senderName,
-                        email = senderEmail
-                    },
-                    domain = domain,
-                    template_id = actualTemplateId
-                };
-
-                var json = JsonSerializer.Serialize(payload);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await _httpClient.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Templated email ({TemplateId}) successfully sent to {ToEmail} via MSG91", actualTemplateId, toEmail);
+                    variables["user_name"] = $"{user.FirstName} {user.LastName}";
                 }
                 else
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed to send templated email ({TemplateId}) via MSG91. Status: {StatusCode}, Response: {Response}", actualTemplateId, response.StatusCode, responseContent);
-                    throw new Exception($"MSG91 Email API returned status code {response.StatusCode}: {responseContent}");
+                    variables["user_name"] = "Valued Patient";
                 }
             }
-            catch (Exception ex)
+
+            // 3. Fetch Clinic Name to populate clinic_name if not already in variables
+            if (!variables.ContainsKey("clinic_name") && !variables.ContainsKey("ClinicName"))
             {
-                _logger.LogError(ex, "Failed to send templated email ({TemplateId}) to {ToEmail} via MSG91.", actualTemplateId, toEmail);
-                throw;
+                var clinicConfig = await _context.AppConfigs
+                    .FirstOrDefaultAsync(c => c.IsActive == 1);
+                
+                string activeClinicName = clinicConfig?.ClinicName ?? _configuration["EmailSettings:ClinicName"] ?? "Relief Dental Clinic";
+                variables["clinic_name"] = activeClinicName;
             }
+
+            // 4. Update and parse placeholders in subject and body
+            string subject = template.Subject;
+            string htmlBody = template.HtmlContent;
+
+            // Make a copy of keys to avoid modification exception
+            var keys = new List<string>(variables.Keys);
+            foreach (var key in keys)
+            {
+                string value = variables[key] ?? string.Empty;
+
+                subject = ReplacePlaceholder(subject, key, value);
+                htmlBody = ReplacePlaceholder(htmlBody, key, value);
+            }
+
+            // Also replace common appointment date/time aliases
+            if (variables.TryGetValue("Appointment_Date", out var appointmentDate))
+            {
+                htmlBody = ReplacePlaceholder(htmlBody, "Appointment Date", appointmentDate);
+                htmlBody = ReplacePlaceholder(htmlBody, "Appoint Date", appointmentDate);
+                htmlBody = ReplacePlaceholder(htmlBody, "Appoint_Date", appointmentDate);
+                
+                subject = ReplacePlaceholder(subject, "Appointment Date", appointmentDate);
+                subject = ReplacePlaceholder(subject, "Appoint Date", appointmentDate);
+                subject = ReplacePlaceholder(subject, "Appoint_Date", appointmentDate);
+            }
+
+            if (variables.TryGetValue("Appointment_Time", out var appointmentTime))
+            {
+                htmlBody = ReplacePlaceholder(htmlBody, "Appointment Time", appointmentTime);
+                htmlBody = ReplacePlaceholder(htmlBody, "Appointment_time", appointmentTime);
+                htmlBody = ReplacePlaceholder(htmlBody, "Appointment time", appointmentTime);
+                
+                subject = ReplacePlaceholder(subject, "Appointment Time", appointmentTime);
+                subject = ReplacePlaceholder(subject, "Appointment_time", appointmentTime);
+                subject = ReplacePlaceholder(subject, "Appointment time", appointmentTime);
+            }
+
+            // Call SendEmailAsync with the populated content
+            await SendEmailAsync(toEmail, subject, htmlBody);
+        }
+
+        private string ReplacePlaceholder(string input, string key, string value)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+
+            // Case-insensitive regex replacement for:
+            // - {{key}}
+            // - {key}
+            string patternDoubleBraces = @"\{\{\s*" + Regex.Escape(key) + @"\s*\}\}";
+            string patternSingleBraces = @"\{\s*" + Regex.Escape(key) + @"\s*\}";
+
+            input = Regex.Replace(input, patternDoubleBraces, value, RegexOptions.IgnoreCase);
+            input = Regex.Replace(input, patternSingleBraces, value, RegexOptions.IgnoreCase);
+
+            return input;
         }
     }
 }

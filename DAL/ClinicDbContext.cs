@@ -21,6 +21,8 @@ namespace ClinicManager.DAL
 
         public DbSet<AppConfig> AppConfigs { get; set; }
         public DbSet<RoleAccess> RoleAccesses { get; set; }
+        public DbSet<EmailTemplate> EmailTemplates { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
