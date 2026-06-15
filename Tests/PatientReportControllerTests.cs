@@ -92,8 +92,8 @@ namespace ClinicManager.Tests
 
         [Theory]
         [InlineData("SGVsbG8gV29ybGQ=", "Hello World")]
-        [InlineData("c2stcHJvai1lc2tIUVE5M2hHYmttWi1vbTJ1R0M5V3FVZVZLMkJtSFRaYWZ0c2V4QWpKUkRKUGJ3MDBmckJvRkRmUURqR01ES3Jad1d6blp1Q1QzQmxia0ZKYnhocHVlRXhtMVNPVVJ4ZF8wUkhZSExzTmp1OVlMaHR1RXlsUm50NzhxTVdubC16ZUpOMHR6ME52dnhsc1BySHVGdWRCcG5XZ0E=", "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")]
-        [InlineData("QUl6YVN5QmFuU0Z6R2dzRFlobHJRRnZ0VFFlM2hCc1BhdE82eEE4", "AIzaSyBanSFzGgsDYhlrQFvtTQe3hBsPatO6xA8")]
+        [InlineData("bW9jay1jaGF0Z3B0LWFwaS1rZXktdmFsdWUtMTIzNDU=", "mock-chatgpt-api-key-value-12345")]
+        [InlineData("bW9jay1nb29nbGUtYXBpLWtleS12YWx1ZS0xMjM0NQ==", "mock-google-api-key-value-12345")]
         [InlineData("YOUR_OPENAI_API_KEY", "YOUR_OPENAI_API_KEY")]
         [InlineData("plain_text", "plain_text")]
         [InlineData("", "")]
