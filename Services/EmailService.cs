@@ -31,7 +31,19 @@ namespace ClinicManager.Services
             if (string.IsNullOrEmpty(input)) return string.Empty;
             try
             {
-                var bytes = Convert.FromBase64String(input);
+                string paddedInput = input.Trim();
+                int mod = paddedInput.Length % 4;
+                if (mod == 2) paddedInput += "==";
+                else if (mod == 3) paddedInput += "=";
+
+                var bytes = Convert.FromBase64String(paddedInput);
+                foreach (var b in bytes)
+                {
+                    if ((b < 32 && b != 9 && b != 10 && b != 13) || b >= 127)
+                    {
+                        return input;
+                    }
+                }
                 return Encoding.UTF8.GetString(bytes);
             }
             catch (FormatException)
@@ -52,18 +64,7 @@ namespace ClinicManager.Services
             var password = DecodeBase64Key(rawPassword);
             var enableSslStr = _configuration["EmailSettings:EnableSsl"] ?? "true";
 
-            // If SMTP server or username is empty, fall back to mock log
-            if (string.IsNullOrEmpty(smtpServer) || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-            {
-                _logger.LogWarning("------ MOCK EMAIL SENT (SMTP NOT CONFIGURED) ------");
-                _logger.LogWarning("To: {ToEmail}", toEmail);
-                _logger.LogWarning("Subject: {Subject}", subject);
-                _logger.LogWarning("Body:\n{Body}", body);
-                _logger.LogWarning("--------------------------------------------------");
-                return;
-            }
-
-            int port = 587;
+           int port = 587;
             if (!int.TryParse(portStr, out port))
             {
                 port = 587;

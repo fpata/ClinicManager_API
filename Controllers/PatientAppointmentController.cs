@@ -135,7 +135,8 @@ namespace ClinicManager.Controllers
                         var variables = new Dictionary<string, string>
                         {
                             { "Appointment_Date", dateStr },
-                            { "Appointment_Time", timeStr }
+                            { "Appointment_Time", timeStr },
+                            { "user_name", $"{user.FirstName} {user.LastName}" }
                         };
 
                         if (!string.IsNullOrEmpty(user.Contact.PrimaryEmail))
@@ -420,7 +421,8 @@ namespace ClinicManager.Controllers
                 var variables = new Dictionary<string, string>
                 {
                     { "Appointment_Date", dateStr },
-                    { "Appointment_Time", timeStr }
+                    { "Appointment_Time", timeStr },
+                    { "user_name", $"{user.FirstName} {user.LastName}" }
                 };
 
                 bool emailSent = false;

@@ -170,7 +170,8 @@ namespace ClinicManager.Controllers
             {
                 var variables = new Dictionary<string, string>
                 {
-                    { "new_password", tempPassword }
+                    { "new_password", tempPassword },
+                    { "user_name", $"{user.FirstName} {user.LastName}" }
                 };
 
                 await _emailService.SendTemplatedEmailAsync(sendTo, "ForgotPassword", variables);
