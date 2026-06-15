@@ -89,5 +89,22 @@ namespace ClinicManager.Tests
                 }
             }
         }
+
+        [Theory]
+        [InlineData("SGVsbG8gV29ybGQ=", "Hello World")]
+        [InlineData("c2stcHJvai1lc2tIUVE5M2hHYmttWi1vbTJ1R0M5V3FVZVZLMkJtSFRaYWZ0c2V4QWpKUkRKUGJ3MDBmckJvRkRmUURqR01ES3Jad1d6blp1Q1QzQmxia0ZKYnhocHVlRXhtMVNPVVJ4ZF8wUkhZSExzTmp1OVlMaHR1RXlsUm50NzhxTVdubC16ZUpOMHR6ME52dnhsc1BySHVGdWRCcG5XZ0E=", "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")]
+        [InlineData("QUl6YVN5QmFuU0Z6R2dzRFlobHJRRnZ0VFFlM2hCc1BhdE82eEE4", "AIzaSyBanSFzGgsDYhlrQFvtTQe3hBsPatO6xA8")]
+        [InlineData("YOUR_OPENAI_API_KEY", "YOUR_OPENAI_API_KEY")]
+        [InlineData("plain_text", "plain_text")]
+        [InlineData("", "")]
+        [InlineData(null, "")]
+        public void DecodeBase64Key_HandlesValuesCorrectly(string? input, string expected)
+        {
+            var methodInfo = typeof(PatientReportController).GetMethod("DecodeBase64Key", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.NotNull(methodInfo);
+
+            var result = methodInfo.Invoke(null, new object[] { input! }) as string;
+            Assert.Equal(expected, result);
+        }
     }
 }

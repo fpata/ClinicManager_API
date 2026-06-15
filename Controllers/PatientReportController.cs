@@ -204,7 +204,8 @@ namespace ClinicManager.Controllers
                 return NotFound("Report file not found on disk.");
             }
 
-            var apiKey = System.Configuration.ConfigurationManager.AppSettings["ChatGPTApiKey"] ?? "YOUR_OPENAI_API_KEY";
+            var rawApiKey = System.Configuration.ConfigurationManager.AppSettings["ChatGPTApiKey"] ?? "YOUR_OPENAI_API_KEY";
+            var apiKey = DecodeBase64Key(rawApiKey);
             var model = System.Configuration.ConfigurationManager.AppSettings["ChatGPTModel"] ?? "gpt-4o-mini";
 
             if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_OPENAI_API_KEY")
@@ -343,6 +344,32 @@ namespace ClinicManager.Controllers
             {
                 _logger.LogError(ex, $"Error extracting text from PDF: {filePath}");
                 return $"[Error extracting text from PDF: {ex.Message}]";
+            }
+        }
+
+        private static string DecodeBase64Key(string? input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+            try
+            {
+                string paddedInput = input.Trim();
+                int mod = paddedInput.Length % 4;
+                if (mod == 2) paddedInput += "==";
+                else if (mod == 3) paddedInput += "=";
+
+                var bytes = Convert.FromBase64String(paddedInput);
+                foreach (var b in bytes)
+                {
+                    if ((b < 32 && b != 9 && b != 10 && b != 13) || b >= 127)
+                    {
+                        return input;
+                    }
+                }
+                return Encoding.UTF8.GetString(bytes);
+            }
+            catch (FormatException)
+            {
+                return input;
             }
         }
     }
