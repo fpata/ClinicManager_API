@@ -6,6 +6,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using UglyToad.PdfPig;
 
 namespace ClinicManager.Controllers
 {
@@ -176,5 +184,183 @@ namespace ClinicManager.Controllers
             }
             return File(System.IO.File.ReadAllBytes(filePath), "application/octet-stream", Path.GetFileName(filePath));
         }
+
+        private static readonly HttpClient _httpClient = new HttpClient();
+
+        [HttpPost("analyze")]
+        public async Task<ActionResult<AnalyzeReportResponse>> Analyze([FromBody] AnalyzeReportRequest request)
+        {
+            _logger.LogInformation($"Analyzing report file: {request?.FilePath}");
+
+            if (request == null || string.IsNullOrEmpty(request.FilePath))
+            {
+                return BadRequest("File path is required.");
+            }
+
+            // Simple validation, file path must exist
+            if (!System.IO.File.Exists(request.FilePath))
+            {
+                _logger.LogWarning($"File not found for analysis: {request.FilePath}");
+                return NotFound("Report file not found on disk.");
+            }
+
+            var apiKey = System.Configuration.ConfigurationManager.AppSettings["ChatGPTApiKey"] ?? "YOUR_OPENAI_API_KEY";
+            var model = System.Configuration.ConfigurationManager.AppSettings["ChatGPTModel"] ?? "gpt-4o-mini";
+
+            if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_OPENAI_API_KEY")
+            {
+                _logger.LogWarning("ChatGPT API key is not configured. Returning simulated mock report analysis.");
+                return Ok(new AnalyzeReportResponse
+                {
+                    ReportName = "Simulated " + Path.GetFileNameWithoutExtension(request.FilePath) + " Analysis",
+                    DoctorName = "Dr. Automated Simulator",
+                    ReportDetails = "IMPORTANT: ChatGPT API key is not configured in app.config. " +
+                                    "This is a high-fidelity simulated response for testing UI integration.\n\n" +
+                                    "Findings Summary:\n" +
+                                    "- Patient shows excellent oral hygiene overall.\n" +
+                                    "- Mild calculus accumulation noted in the lower anterior sextant.\n" +
+                                    "- No active caries or pathological radiographic findings identified.\n" +
+                                    "Recommendation: Schedule standard prophylaxis (scaling & polishing) in 6 months."
+                });
+            }
+
+            try
+            {
+                string extension = Path.GetExtension(request.FilePath)?.ToLowerInvariant() ?? "";
+                bool isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".webp" || extension == ".gif";
+                bool isPdf = extension == ".pdf";
+
+                object messageContent;
+
+                if (isImage)
+                {
+                    byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(request.FilePath);
+                    string base64Image = Convert.ToBase64String(fileBytes);
+                    string mimeType = extension switch
+                    {
+                        ".png" => "image/png",
+                        ".webp" => "image/webp",
+                        ".gif" => "image/gif",
+                        _ => "image/jpeg"
+                    };
+
+                    messageContent = new object[]
+                    {
+                        new { type = "text", text = GetPrompt() },
+                        new { type = "image_url", image_url = new { url = $"data:{mimeType};base64,{base64Image}" } }
+                    };
+                }
+                else if (isPdf)
+                {
+                    string extractedText = ExtractTextFromPdf(request.FilePath);
+                    messageContent = $"{GetPrompt()}\n\nHere is the text extracted from the report PDF:\n{extractedText}";
+                }
+                else
+                {
+                    // Assume text-based file
+                    string textContent = await System.IO.File.ReadAllTextAsync(request.FilePath);
+                    messageContent = $"{GetPrompt()}\n\nHere is the text of the report:\n{textContent}";
+                }
+
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "user", content = messageContent }
+                    },
+                    response_format = new { type = "json_object" }
+                };
+
+                var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+                httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                httpRequest.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.SendAsync(httpRequest);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"OpenAI API call failed: {response.StatusCode} - {errorContent}");
+                    return StatusCode((int)response.StatusCode, $"OpenAI API call failed: {errorContent}");
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseString);
+                var contentString = doc.RootElement
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString();
+
+                if (string.IsNullOrEmpty(contentString))
+                {
+                    return StatusCode(500, "Received empty response content from OpenAI.");
+                }
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var analysis = JsonSerializer.Deserialize<AnalyzeReportResponse>(contentString, options);
+
+                if (analysis == null)
+                {
+                    return StatusCode(500, "Failed to deserialize JSON response from OpenAI.");
+                }
+
+                return Ok(analysis);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while analyzing the report file.");
+                return StatusCode(500, $"An error occurred during AI analysis: {ex.Message}");
+            }
+        }
+
+        private string GetPrompt()
+        {
+            return "You are an AI assistant in a dental and general medical clinic. " +
+                   "Analyze the attached medical/dental report. " +
+                   "Extract the following three fields and return them in a JSON object with the exact keys: " +
+                   "\"reportName\" (a concise name for the report, e.g., 'Dental X-Ray', 'Routine Scaling Findings'), " +
+                   "\"doctorName\" (the name of the doctor who created/signed the report, if any, or empty string), " +
+                   "\"reportDetails\" (a structured summary of findings, diagnoses, teeth numbers affected, and recommended treatments). " +
+                   "Do not include any extra text outside the JSON object.";
+        }
+
+        private string ExtractTextFromPdf(string filePath)
+        {
+            try
+            {
+                using (var pdf = UglyToad.PdfPig.PdfDocument.Open(filePath))
+                {
+                    var text = new StringBuilder();
+                    foreach (var page in pdf.GetPages())
+                    {
+                        text.AppendLine(page.Text);
+                    }
+                    return text.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error extracting text from PDF: {filePath}");
+                return $"[Error extracting text from PDF: {ex.Message}]";
+            }
+        }
+    }
+
+    public class AnalyzeReportRequest
+    {
+        public string? FilePath { get; set; }
+    }
+
+    public class AnalyzeReportResponse
+    {
+        [JsonPropertyName("reportName")]
+        public string? ReportName { get; set; }
+
+        [JsonPropertyName("doctorName")]
+        public string? DoctorName { get; set; }
+
+        [JsonPropertyName("reportDetails")]
+        public string? ReportDetails { get; set; }
     }
 }
