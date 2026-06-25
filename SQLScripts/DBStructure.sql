@@ -442,7 +442,8 @@ DROP TABLE IF EXISTS `emailtemplate`;
 CREATE TABLE `emailtemplate` (
   `ID` int NOT NULL AUTO_INCREMENT,
   `TemplateId` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `Subject` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `TemplateType` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Email',
+  `Subject` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `HtmlContent` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
   `CreatedDate` datetime DEFAULT CURRENT_TIMESTAMP,
   `ModifiedDate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

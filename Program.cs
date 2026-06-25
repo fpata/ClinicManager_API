@@ -7,8 +7,12 @@ using System.Text.Json.Serialization;
 using ClinicManager.DAL;
 using ClinicManager.Services;
 using Serilog;
+using ClinicManager;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Initialize AppConfigHelper with modern configuration provider
+AppConfigHelper.Initialize(builder.Configuration);
 
 // Configure Serilog
 builder.Host.UseSerilog((context, configuration) => 
@@ -18,6 +22,7 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<ISmsService, SmsService>();
 builder.Services.AddTransient<IPrescriptionService, PrescriptionService>();
+builder.Services.AddTransient<IWhatsAppService, WhatsAppService>();
 
 builder.Services.AddControllers()
      .AddJsonOptions(options =>
@@ -75,11 +80,11 @@ string DecodeConnectionString(string? input)
 }
 
 // Add EF Core DbContext based on app.config configuration (MySql or SqlServer)
-var provider = System.Configuration.ConfigurationManager.AppSettings["DatabaseProvider"] ?? "MySql";
+var provider = AppConfigHelper.GetAppSetting("DatabaseProvider") ?? "MySql";
 
 if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
 {
-    var rawConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["SqlServerConnection"]?.ConnectionString 
+    var rawConnectionString = AppConfigHelper.GetConnectionString("SqlServerConnection") 
         ?? builder.Configuration.GetConnectionString("SqlServerConnection");
     var connectionString = DecodeConnectionString(rawConnectionString);
     
@@ -91,7 +96,7 @@ if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
 }
 else
 {
-    var rawConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["MySqlConnection"]?.ConnectionString 
+    var rawConnectionString = AppConfigHelper.GetConnectionString("MySqlConnection") 
         ?? builder.Configuration.GetConnectionString("DefaultConnection");
     var connectionString = DecodeConnectionString(rawConnectionString);
         
@@ -105,7 +110,11 @@ else
 
 
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "KeyForClinicManagerJWTTokenForEncryptionPassKey";
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey) || jwtKey.Contains("_PLACEHOLDER"))
+{
+    jwtKey = "KeyForClinicManagerJWTTokenForEncryptionPassKey";
+}
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ClinicManagerIssuer";
 var jwtaudience = builder.Configuration["Jwt:Audience"] ?? "ClinicManagerAudience";
 builder.Services.AddAuthentication(options =>

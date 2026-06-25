@@ -1,5 +1,6 @@
 using ClinicManager.DAL;
 using ClinicManager.Models;
+using ClinicManager;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -204,9 +205,9 @@ namespace ClinicManager.Controllers
                 return NotFound("Report file not found on disk.");
             }
 
-            var rawApiKey = System.Configuration.ConfigurationManager.AppSettings["ChatGPTApiKey"] ?? "YOUR_OPENAI_API_KEY";
+            var rawApiKey = AppConfigHelper.GetAppSetting("ChatGPTApiKey") ?? "YOUR_OPENAI_API_KEY";
             var apiKey = DecodeBase64Key(rawApiKey);
-            var model = System.Configuration.ConfigurationManager.AppSettings["ChatGPTModel"] ?? "gpt-4o-mini";
+            var model = AppConfigHelper.GetAppSetting("ChatGPTModel") ?? "gpt-4o-mini";
 
             if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_OPENAI_API_KEY")
             {

@@ -347,7 +347,8 @@ CREATE INDEX [IX_Payment_BillingID] ON [dbo].[payment] ([BillingID]);
 CREATE TABLE [dbo].[emailtemplate] (
   [ID] int NOT NULL IDENTITY(1,1),
   [TemplateId] nvarchar(100) NOT NULL,
-  [Subject] nvarchar(200) NOT NULL,
+  [TemplateType] nvarchar(100) NOT NULL DEFAULT 'Email',
+  [Subject] nvarchar(200) NULL,
   [HtmlContent] nvarchar(max) NOT NULL,
   [CreatedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
   [ModifiedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
