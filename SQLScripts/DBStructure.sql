@@ -455,6 +455,27 @@ CREATE TABLE `emailtemplate` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `systemkey`
+--
+
+DROP TABLE IF EXISTS `systemkey`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `systemkey` (
+  `ID` int NOT NULL AUTO_INCREMENT,
+  `KeyName` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `KeyValue` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `CreatedDate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `ModifiedDate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `CreatedBy` int DEFAULT '1',
+  `ModifiedBy` int DEFAULT '1',
+  `IsActive` tinyint DEFAULT '1',
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `KeyName_UNIQUE` (`KeyName`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

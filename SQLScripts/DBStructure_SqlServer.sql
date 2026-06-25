@@ -15,6 +15,7 @@ IF OBJECT_ID('dbo.config', 'U') IS NOT NULL DROP TABLE dbo.config;
 IF OBJECT_ID('dbo.roleaccess', 'U') IS NOT NULL DROP TABLE dbo.roleaccess;
 IF OBJECT_ID('dbo.user', 'U') IS NOT NULL DROP TABLE dbo.[user];
 IF OBJECT_ID('dbo.emailtemplate', 'U') IS NOT NULL DROP TABLE dbo.emailtemplate;
+IF OBJECT_ID('dbo.systemkey', 'U') IS NOT NULL DROP TABLE dbo.systemkey;
 
 
 -- 1. Table structure for table user
@@ -357,5 +358,19 @@ CREATE TABLE [dbo].[emailtemplate] (
   [IsActive] tinyint DEFAULT 1,
   CONSTRAINT [PK_EmailTemplate] PRIMARY KEY ([ID]),
   CONSTRAINT [UQ_EmailTemplate_TemplateId] UNIQUE ([TemplateId])
+);
+
+-- 15. Table structure for table systemkey
+CREATE TABLE [dbo].[systemkey] (
+  [ID] int NOT NULL IDENTITY(1,1),
+  [KeyName] nvarchar(100) NOT NULL,
+  [KeyValue] nvarchar(max) NOT NULL,
+  [CreatedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  [ModifiedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  [CreatedBy] int DEFAULT 1,
+  [ModifiedBy] int DEFAULT 1,
+  [IsActive] tinyint DEFAULT 1,
+  CONSTRAINT [PK_SystemKey] PRIMARY KEY ([ID]),
+  CONSTRAINT [UQ_SystemKey_KeyName] UNIQUE ([KeyName])
 );
 

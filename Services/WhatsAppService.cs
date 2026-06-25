@@ -60,11 +60,17 @@ namespace ClinicManager.Services
         private async Task SendWhatsAppViaTwilioAsync(string toPhone, string message)
         {
             // Try to load credentials from WhatsAppSettings, fallback to SmsSettings
-            var accountSid = _configuration["WhatsAppSettings:Twilio:AccountSid"];
-            if (string.IsNullOrEmpty(accountSid)) accountSid = _configuration["SmsSettings:AccountSid"];
+            var accountSid = await GetSecretKeyAsync("WhatsAppSettings:Twilio:AccountSid", "WhatsAppSettings:Twilio:AccountSid");
+            if (string.IsNullOrEmpty(accountSid))
+            {
+                accountSid = await GetSecretKeyAsync("SmsSettings:AccountSid", "SmsSettings:AccountSid");
+            }
 
-            var authToken = _configuration["WhatsAppSettings:Twilio:AuthToken"];
-            if (string.IsNullOrEmpty(authToken)) authToken = _configuration["SmsSettings:AuthToken"];
+            var authToken = await GetSecretKeyAsync("WhatsAppSettings:Twilio:AuthToken", "WhatsAppSettings:Twilio:AuthToken");
+            if (string.IsNullOrEmpty(authToken))
+            {
+                authToken = await GetSecretKeyAsync("SmsSettings:AuthToken", "SmsSettings:AuthToken");
+            }
 
             var fromNumber = _configuration["WhatsAppSettings:Twilio:FromPhoneNumber"];
             if (string.IsNullOrEmpty(fromNumber)) fromNumber = _configuration["SmsSettings:FromPhoneNumber"];
@@ -129,8 +135,11 @@ namespace ClinicManager.Services
 
         private async Task SendWhatsAppViaMsg91Async(string toPhone, string message)
         {
-            var authKey = _configuration["WhatsAppSettings:Msg91:AuthKey"];
-            if (string.IsNullOrEmpty(authKey)) authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("WhatsAppSettings:Msg91:AuthKey", "WhatsAppSettings:Msg91:AuthKey");
+            if (string.IsNullOrEmpty(authKey))
+            {
+                authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
+            }
 
             var senderNumber = _configuration["WhatsAppSettings:Msg91:SenderNumber"];
 
@@ -260,8 +269,11 @@ namespace ClinicManager.Services
 
         private async Task SendTemplatedWhatsAppViaMsg91Async(string toPhone, string templateId, Dictionary<string, string> variables)
         {
-            var authKey = _configuration["WhatsAppSettings:Msg91:AuthKey"];
-            if (string.IsNullOrEmpty(authKey)) authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("WhatsAppSettings:Msg91:AuthKey", "WhatsAppSettings:Msg91:AuthKey");
+            if (string.IsNullOrEmpty(authKey))
+            {
+                authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
+            }
 
             if (string.IsNullOrEmpty(authKey) || authKey.Contains("_PLACEHOLDER"))
             {
@@ -382,6 +394,19 @@ namespace ClinicManager.Services
             }
 
             return template;
+        }
+
+        private async Task<string?> GetSecretKeyAsync(string name, string configKey)
+        {
+            var dbKey = await _context.SystemKeys
+                .FirstOrDefaultAsync(k => k.KeyName == name && k.IsActive == 1);
+            
+            if (dbKey != null)
+            {
+                return ClinicManager.Helpers.EncryptionHelper.Decrypt(dbKey.KeyValue);
+            }
+
+            return _configuration[configKey];
         }
     }
 }

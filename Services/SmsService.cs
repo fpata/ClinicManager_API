@@ -59,8 +59,8 @@ namespace ClinicManager.Services
 
         private async Task SendSmsViaTwilioAsync(string toPhone, string message)
         {
-            var accountSid = _configuration["SmsSettings:AccountSid"];
-            var authToken = _configuration["SmsSettings:AuthToken"];
+            var accountSid = await GetSecretKeyAsync("SmsSettings:AccountSid", "SmsSettings:AccountSid");
+            var authToken = await GetSecretKeyAsync("SmsSettings:AuthToken", "SmsSettings:AuthToken");
             var fromNumber = _configuration["SmsSettings:FromPhoneNumber"];
 
             if (string.IsNullOrEmpty(accountSid) || accountSid.Contains("_PLACEHOLDER") ||
@@ -109,7 +109,7 @@ namespace ClinicManager.Services
 
         private async Task SendSmsViaMsg91Async(string toPhone, string message)
         {
-            var authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
             var templateId = _configuration["Msg91Settings:Sms:TemplateId"];
             var variableName = _configuration["Msg91Settings:Sms:VariableName"] ?? "message";
 
@@ -243,7 +243,7 @@ namespace ClinicManager.Services
 
         private async Task SendTemplatedSmsViaMsg91Async(string toPhone, string templateId, Dictionary<string, string> variables)
         {
-            var authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
             if (string.IsNullOrEmpty(authKey) || authKey.Contains("_PLACEHOLDER"))
             {
                 _logger.LogWarning("MSG91 AuthKey is not configured. Skipping SMS sending.");
@@ -338,6 +338,19 @@ namespace ClinicManager.Services
             }
 
             return template;
+        }
+
+        private async Task<string?> GetSecretKeyAsync(string name, string configKey)
+        {
+            var dbKey = await _context.SystemKeys
+                .FirstOrDefaultAsync(k => k.KeyName == name && k.IsActive == 1);
+            
+            if (dbKey != null)
+            {
+                return ClinicManager.Helpers.EncryptionHelper.Decrypt(dbKey.KeyValue);
+            }
+
+            return _configuration[configKey];
         }
     }
 }

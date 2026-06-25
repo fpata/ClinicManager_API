@@ -85,7 +85,7 @@ namespace ClinicManager.Services
 
         private async Task SendEmailViaSendGridAsync(string toEmail, string subject, string body)
         {
-            var apiKey = _configuration["EmailSettings:ApiKey"];
+            var apiKey = await GetSecretKeyAsync("EmailSettings:ApiKey", "EmailSettings:ApiKey");
             if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("_PLACEHOLDER"))
             {
                 _logger.LogWarning("Twilio/SendGrid API key is not configured. Skipping email sending.");
@@ -137,7 +137,7 @@ namespace ClinicManager.Services
 
         private async Task SendEmailViaMsg91Async(string toEmail, string subject, string body)
         {
-            var authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
             var templateId = _configuration["Msg91Settings:Email:TemplateId"];
 
             if (string.IsNullOrEmpty(authKey) || authKey.Contains("_PLACEHOLDER"))
@@ -213,7 +213,7 @@ namespace ClinicManager.Services
             var senderEmail = _configuration["EmailSettings:SenderEmail"] ?? "noreply@reliefdentalclinic.com";
             var senderName = _configuration["EmailSettings:SenderName"] ?? "Relief Dental Clinic";
             var username = _configuration["EmailSettings:Username"];
-            var rawPassword = _configuration["EmailSettings:Password"];
+            var rawPassword = await GetSecretKeyAsync("EmailSettings:Password", "EmailSettings:Password");
             var password = DecodeBase64Key(rawPassword);
             var enableSslStr = _configuration["EmailSettings:EnableSsl"] ?? "true";
 
@@ -290,7 +290,7 @@ namespace ClinicManager.Services
 
         private async Task SendTemplatedEmailViaMsg91Async(string toEmail, string templateId, Dictionary<string, string> variables)
         {
-            var authKey = _configuration["Msg91Settings:AuthKey"];
+            var authKey = await GetSecretKeyAsync("Msg91Settings:AuthKey", "Msg91Settings:AuthKey");
             if (string.IsNullOrEmpty(authKey) || authKey.Contains("_PLACEHOLDER"))
             {
                 _logger.LogWarning("MSG91 AuthKey is not configured. Skipping email sending.");
@@ -429,6 +429,19 @@ namespace ClinicManager.Services
             input = Regex.Replace(input, patternSingleBraces, value, RegexOptions.IgnoreCase);
 
             return input;
+        }
+
+        private async Task<string?> GetSecretKeyAsync(string name, string configKey)
+        {
+            var dbKey = await _context.SystemKeys
+                .FirstOrDefaultAsync(k => k.KeyName == name && k.IsActive == 1);
+            
+            if (dbKey != null)
+            {
+                return ClinicManager.Helpers.EncryptionHelper.Decrypt(dbKey.KeyValue);
+            }
+
+            return _configuration[configKey];
         }
     }
 }
