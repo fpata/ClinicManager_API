@@ -143,7 +143,17 @@ app.Use(async (context, next) =>
     {
         logger.LogError(ex, "An unhandled exception occurred while processing the request.");
         context.Response.StatusCode = 500;
-        await context.Response.WriteAsync("An unexpected error occurred. Please try again later.");
+        context.Response.ContentType = "application/json";
+        
+        var errorResponse = new
+        {
+            Message = ex.Message,
+            InnerException = ex.InnerException?.Message,
+            StackTrace = ex.StackTrace
+        };
+        
+        var json = System.Text.Json.JsonSerializer.Serialize(errorResponse);
+        await context.Response.WriteAsync(json);
     }
 });
 

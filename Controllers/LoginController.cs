@@ -6,7 +6,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ClinicManager.DAL;
-using Castle.Core.Smtp;
 using ClinicManager.Models.Enums;
 using ClinicManager.Services;
 

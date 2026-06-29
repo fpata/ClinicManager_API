@@ -369,7 +369,13 @@ namespace ClinicManager.Controllers
             {
                 _logger.LogError(ex, "Error creating patient");
                 await dbContextTransaction.RollbackAsync();
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new
+                {
+                    Message = "Internal server error while creating patient",
+                    Detail = ex.Message,
+                    InnerException = ex.InnerException?.Message,
+                    StackTrace = ex.StackTrace
+                });
             }
 
             return CreatedAtAction (nameof(Get), new { id = patient.ID }, patient);
@@ -703,7 +709,13 @@ namespace ClinicManager.Controllers
             {
                 await dbContextTransaction.RollbackAsync();
                 _logger.LogError(ex, $"Error updating patient with ID: {id}");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new
+                {
+                    Message = "Internal server error while updating patient",
+                    Detail = ex.Message,
+                    InnerException = ex.InnerException?.Message,
+                    StackTrace = ex.StackTrace
+                });
             }
         }
 

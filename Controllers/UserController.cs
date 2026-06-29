@@ -127,7 +127,13 @@ namespace ClinicManager.Controllers
             {
                 await dbTransaction.RollbackAsync();
                 _logger.LogError(ex, "Error creating user");
-                return StatusCode(500, "Internal server error while creating user");
+                return StatusCode(500, new
+                {
+                    Message = "Internal server error while creating user",
+                    Detail = ex.Message,
+                    InnerException = ex.InnerException?.Message,
+                    StackTrace = ex.StackTrace
+                });
             }
 
             _logger.LogInformation($"Created new user with ID: {user.ID}");
@@ -205,7 +211,13 @@ namespace ClinicManager.Controllers
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, $"Error updating user with ID: {id}");
-                return StatusCode(500, "Internal server error while updating user");
+                return StatusCode(500, new
+                {
+                    Message = "Internal server error while updating user",
+                    Detail = ex.Message,
+                    InnerException = ex.InnerException?.Message,
+                    StackTrace = ex.StackTrace
+                });
             }
 
         }
