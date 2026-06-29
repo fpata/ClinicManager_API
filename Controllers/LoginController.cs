@@ -20,13 +20,15 @@ namespace ClinicManager.Controllers
         private readonly ILogger<LoginController> _logger;
         private readonly IEmailService _emailService;
         private readonly ISmsService _smsService;
+        private readonly ITenantService _tenantService;
 
-        public LoginController(ClinicDbContext context, ILogger<LoginController> logger, IEmailService emailService, ISmsService smsService)
+        public LoginController(ClinicDbContext context, ILogger<LoginController> logger, IEmailService emailService, ISmsService smsService, ITenantService tenantService)
         {
             _context = context;
             _logger = logger;
             _emailService = emailService;
             _smsService = smsService;
+            _tenantService = tenantService;
         }
 
         public class LoginRequest
@@ -75,6 +77,8 @@ namespace ClinicManager.Controllers
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+            var tenantId = _tenantService.GetTenantId() ?? string.Empty;
+
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user!.UserName!), // userName validated above
@@ -85,6 +89,7 @@ namespace ClinicManager.Controllers
                 new Claim("canAccessDashboard", canAccessDashboard.ToString().ToLower()),
                 new Claim("canAccessBilling", canAccessBilling.ToString().ToLower()),
                 new Claim("canAccessConfig", canAccessConfig.ToString().ToLower()),
+                new Claim("tenantid", tenantId),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

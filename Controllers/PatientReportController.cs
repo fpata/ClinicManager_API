@@ -1,6 +1,7 @@
 using ClinicManager.DAL;
 using ClinicManager.Models;
 using ClinicManager;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -25,11 +26,13 @@ namespace ClinicManager.Controllers
     {
         private readonly ClinicDbContext _context;
         private readonly ILogger<PatientReportController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public PatientReportController(ClinicDbContext context, ILogger<PatientReportController> logger)
+        public PatientReportController(ClinicDbContext context, ILogger<PatientReportController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration;
         }
 
         private bool IsAuthorizedForPatient(int? patientUserId)
@@ -205,9 +208,9 @@ namespace ClinicManager.Controllers
                 return NotFound("Report file not found on disk.");
             }
 
-            var rawApiKey = AppConfigHelper.GetAppSetting("ChatGPTApiKey") ?? "YOUR_OPENAI_API_KEY";
+            var rawApiKey = _configuration["ChatGPTApiKey"] ?? "YOUR_OPENAI_API_KEY";
             var apiKey = DecodeBase64Key(rawApiKey);
-            var model = AppConfigHelper.GetAppSetting("ChatGPTModel") ?? "gpt-4o-mini";
+            var model = _configuration["ChatGPTModel"] ?? "gpt-4o-mini";
 
             if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_OPENAI_API_KEY")
             {

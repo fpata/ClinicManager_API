@@ -11,14 +11,14 @@ using ClinicManager;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Initialize AppConfigHelper with modern configuration provider
-AppConfigHelper.Initialize(builder.Configuration);
 
 // Configure Serilog
 builder.Host.UseSerilog((context, configuration) => 
     configuration.ReadFrom.Configuration(context.Configuration));
 
 // Add services to the container.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<ISmsService, SmsService>();
 builder.Services.AddTransient<IPrescriptionService, PrescriptionService>();
@@ -64,49 +64,31 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Helper function to decode Base64 connection string
-string DecodeConnectionString(string? input)
+// Add EF Core DbContext dynamically based on ITenantService and DatabaseProvider setting
+builder.Services.AddDbContext<ClinicDbContext>((serviceProvider, options) =>
 {
-    if (string.IsNullOrEmpty(input)) return string.Empty;
-    try
-    {
-        var bytes = System.Convert.FromBase64String(input);
-        return System.Text.Encoding.UTF8.GetString(bytes);
-    }
-    catch (System.FormatException)
-    {
-        return input;
-    }
-}
-
-// Add EF Core DbContext based on app.config configuration (MySql or SqlServer)
-var provider = AppConfigHelper.GetAppSetting("DatabaseProvider") ?? "MySql";
-
-if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
-{
-    var rawConnectionString = AppConfigHelper.GetConnectionString("SqlServerConnection") 
-        ?? builder.Configuration.GetConnectionString("SqlServerConnection");
-    var connectionString = DecodeConnectionString(rawConnectionString);
+    var tenantService = serviceProvider.GetRequiredService<ITenantService>();
+    var connectionString = tenantService.GetTenantConnectionString();
     
-    builder.Services.AddDbContext<ClinicDbContext>(options =>
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var provider = configuration["DatabaseProvider"] ?? "MySql";
+
+    if (provider.Equals("SqlServer", System.StringComparison.OrdinalIgnoreCase))
+    {
         options.UseSqlServer(
             connectionString,
             sqlServerOptions => sqlServerOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-        ));
-}
-else
-{
-    var rawConnectionString = AppConfigHelper.GetConnectionString("MySqlConnection") 
-        ?? builder.Configuration.GetConnectionString("DefaultConnection");
-    var connectionString = DecodeConnectionString(rawConnectionString);
-        
-    builder.Services.AddDbContext<ClinicDbContext>(options =>
+        );
+    }
+    else
+    {
         options.UseMySql(
             connectionString,
             new MySqlServerVersion(new Version(8, 0, 36)),
             mySqlOptions => mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-        ));
-}
+        );
+    }
+});
 
 
 
