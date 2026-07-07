@@ -67,7 +67,7 @@ namespace ClinicManager.Models
         public double? CoinsuranceAmount { get; set; }
         public double? InsurancePortion { get; set; }    // Calculated
         public double? PatientPortion { get; set; }      // Calculated
-        public float? AdjudicationRef { get; set; }
+        public double? AdjudicationRef { get; set; }
 
         public InsuranceStatus? Status;
     }

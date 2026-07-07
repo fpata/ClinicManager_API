@@ -21,7 +21,7 @@ namespace ClinicManager.Models
 
         public int? ModifiedBy { get; set; } = 1;
 
-        public byte? IsActive { get; set; } = 1;
+        public int? IsActive { get; set; } = 1;
 
       
     }
