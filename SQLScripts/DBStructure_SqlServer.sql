@@ -221,7 +221,7 @@ CREATE TABLE [dbo].[patienttreatmentdetail] (
   [TreatmentDate] datetime2 DEFAULT NULL,
   [PatientID] int DEFAULT NULL,
   [FollowUpInstructions] nvarchar(max) DEFAULT NULL,
-  [IsActive] int NOT NULL DEFAULT 1,
+  [IsActive] tinyint NOT NULL DEFAULT 1,
   [FollowUpDate] nvarchar(max) DEFAULT NULL,
   [ProcedureTreatmentCost] float DEFAULT 0,
   [CreatedDate] datetime2 NOT NULL DEFAULT CURRENT_TIMESTAMP,
