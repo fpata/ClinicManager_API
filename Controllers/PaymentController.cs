@@ -151,7 +151,7 @@ namespace ClinicManager.Controllers
                     .Where(p => p.BillingID == billingId && p.IsActive != 0)
                     .ToListAsync();
 
-                float amountPaid = payments.Sum(p => p.Amount ?? 0);
+                double amountPaid = payments.Sum(p => p.Amount ?? 0);
                 billing.AmountPaid = amountPaid;
                 billing.BalanceDue = (billing.Total ?? 0) - amountPaid;
 

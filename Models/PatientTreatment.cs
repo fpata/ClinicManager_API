@@ -39,8 +39,8 @@ namespace ClinicManager.Models
         [StringLength(50)]
         public string? PaymentStatus { get; set; }
 
-        public float? EstimatedCost { get; set; }
-        public float? ActualCost { get; set; }
+        public double? EstimatedCost { get; set; }
+        public double? ActualCost { get; set; }
 
         public virtual ICollection<PatientTreatmentDetail>? PatientTreatmentDetails { get; set; } = new List<PatientTreatmentDetail>();
 

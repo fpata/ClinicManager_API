@@ -7,7 +7,7 @@ namespace ClinicManager.Models
     public class Payment : BaseEntity
     {
         public int? BillingID { get; set; }
-        public float? Amount { get; set; }
+        public  double? Amount { get; set; }
         public PaymentMethod? PaymentMethod { get; set; }
         public string? TransactionDate { get; set; }   // ISO datetime
         public string? Reference { get; set; }        // Check #, Auth code, etc.

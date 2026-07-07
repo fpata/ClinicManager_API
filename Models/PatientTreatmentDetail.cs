@@ -26,7 +26,7 @@ namespace ClinicManager.Models
 
         public string? FollowUpDate { get; set; }
 
-        public float? ProcedureTreatmentCost { get; set; } = 0;
+        public double? ProcedureTreatmentCost { get; set; } = 0;
 
         // Navigation properties to enable EF Core relationship tracking
         public virtual PatientTreatment? PatientTreatment { get; set; }

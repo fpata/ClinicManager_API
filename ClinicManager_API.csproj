@@ -23,6 +23,8 @@
     <None Remove="C:\Users\fpata\.nuget\packages\xunit.runner.visualstudio\2.4.3\build\netcoreapp2.1\xunit.runner.reporters.netcoreapp10.dll" />
     <None Remove="C:\Users\fpata\.nuget\packages\xunit.runner.visualstudio\2.4.3\build\netcoreapp2.1\xunit.runner.utility.netcoreapp10.dll" />
     <None Remove="C:\Users\fpata\.nuget\packages\xunit.runner.visualstudio\2.4.3\build\netcoreapp2.1\xunit.runner.visualstudio.dotnetcore.testadapter.dll" />
+    <None Remove="logs\app-log20260629.txt" />
+    <None Remove="logs\app-log20260701.txt" />
   </ItemGroup>
 
   <ItemGroup>
@@ -48,6 +50,9 @@
     <None Update="app.Production.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="logs\" />
   </ItemGroup>
 
 </Project>

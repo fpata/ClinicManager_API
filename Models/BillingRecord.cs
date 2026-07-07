@@ -9,12 +9,12 @@ namespace ClinicManager.Models
         public int TreatmentID { get; set; }
 
         public BillingStatus? Status { get; set; }
-        public float? Subtotal { get; set; }
-        public float? TaxTotal { get; set; }
-        public float? DiscountTotal { get; set; }
-        public float? Total { get; set; }                 // (Subtotal + Tax - Discount + Adjustment)
-        public float? AmountPaid { get; set; }
-        public float? BalanceDue { get; set; }
+        public double? Subtotal { get; set; }
+        public double? TaxTotal { get; set; }
+        public double? DiscountTotal { get; set; }
+        public double? Total { get; set; }                 // (Subtotal + Tax - Discount + Adjustment)
+        public double? AmountPaid { get; set; }
+        public double? BalanceDue { get; set; }
 
         public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
@@ -46,8 +46,8 @@ namespace ClinicManager.Models
         public int? PatientID { get; set; }
         public int? DoctorID { get; set; }
         public int? TreatmentID { get; set; }
-        public float? Total { get; set; }
-        public float? BalanceDue { get; set; }
+        public double? Total { get; set; }
+        public double? BalanceDue { get; set; }
         public ClinicManager.Models.Enums.BillingStatus? Status { get; set; }
         public string? PatientName { get; set; }
         public DateTime? StartDate { get; set; }
@@ -61,12 +61,12 @@ namespace ClinicManager.Models
         public string? PayerName { get; set; }
         public string? PolicyNumber { get; set; }
         public string? GroupNumber { get; set; }
-        public float? CoveragePercent { get; set; }     // e.g. 0.8 for 80%
-        public float? DeductibleApplied { get; set; }
-        public float? CopayAmount { get; set; }
-        public float? CoinsuranceAmount { get; set; }
-        public float? InsurancePortion { get; set; }    // Calculated
-        public float? PatientPortion { get; set; }      // Calculated
+        public double? CoveragePercent { get; set; }     // e.g. 0.8 for 80%
+        public double? DeductibleApplied { get; set; }
+        public double? CopayAmount { get; set; }
+        public double? CoinsuranceAmount { get; set; }
+        public double? InsurancePortion { get; set; }    // Calculated
+        public double? PatientPortion { get; set; }      // Calculated
         public float? AdjudicationRef { get; set; }
 
         public InsuranceStatus? Status;
